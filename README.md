@@ -12,7 +12,7 @@ Tidak perlu akun dan tidak perlu dipasang.
 - Mensimulasikan pabrik: laju tiap barang, persen kerja tiap mesin, dan pemakaian daya.
 - Memeriksa jalur putus, bangunan bertumpuk, dan mesin yang belum tersambung.
 - Menghitung Stock Bill per menit, kapan depot penuh, dan apakah bahan cukup.
-- Merencanakan kebun di lahan tanam, tanpa Unit Penanam dan Unit Petik Benih.
+- Merancang kebun di lahan tanam dengan petak, Sprinkler, pompa, dan Auto-Farmer, lalu menghitung hasil panennya.
 - Mengunduh hasil sebagai gambar, laporan, tabel, atau berkas rancangan.
 
 ## Cara pakai
@@ -33,9 +33,18 @@ Tidak perlu akun dan tidak perlu dipasang.
 | **Neraca** | Produk, pendapatan, pos depan, bahan, pompa, dan kerja mesin |
 | **Rantai** | Mesin dan bahan yang dibutuhkan untuk membuat suatu barang |
 | **Jalur** | Semua ruas sabuk dan pipa, termasuk yang terpanjang dan yang putus |
-| **Kebun** | Isi petak di Agricultural Test Site, Eco-Farm, dan Si's Painting, lalu hitung hasil panennya |
 
 Di tab **Neraca**, isi hasil tambangmu per menit dan level pos depan supaya perhitungannya sesuai akunmu.
+
+### Kebun
+
+Klik **Kebun** di bilah atas untuk merancang lahan tanam di Agricultural Test Site, Eco-Farm, atau Si's Painting. Lahan ini terpisah dari pabrik, jadi tidak memakai Unit Penanam dan Unit Petik Benih.
+
+1. Taruh petak dari daftar kiri. Tiap petak 4×4 dan harus di dalam area.
+2. Pasang Sprinkler menghadap petak, lalu sambungkan pipa dari pompa. Kotak biru menunjukkan jangkauannya.
+3. Lihat tab **Panen** untuk hasil per hari dan barang yang perlu disiapkan.
+
+Waktu tumbuh, hasil per petak, jangkauan Sprinkler, dan luas lahan masih anggapan, jadi samakan dengan yang kamu lihat di game.
 
 ### Tombol
 

@@ -76,11 +76,9 @@ button.grup:hover { background: var(--garis); }
 .jumlahBaris { flex: none; font: 700 12px var(--angka); color: #17703a; }
 .baris[aria-pressed="true"] .jumlahBaris { color: var(--sabuk); }
 .kosongPustaka { padding: 6px 10px; }
-.gridKebun { display: grid; gap: 4px; }
-.petak { min-height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 2px; background: #fff; border: 1px dashed var(--garis); font: 600 11px/1.1 var(--ui); text-align: center; overflow-wrap: anywhere; }
-.petak:hover { border-color: var(--tinta); }
-.petak.isi { border: 1px solid #17703a; background: #eef6f0; }
-.petak img { width: 34px; height: 34px; }
+#modeLahan { display: inline-flex; gap: 2px; margin-right: 6px; flex: none; }
+.modeKebun #vSabuk { display: none; }
+.catatanLahan { padding: 6px 8px 8px; }
 .daftarUnduh { display: flex; flex-direction: column; gap: 4px; margin-block: 8px; }
 .barisUnduh { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 9px; background: #fff; border: 1px solid var(--garis); }
 .barisUnduh b { font: 700 14px var(--ui); }
@@ -255,6 +253,10 @@ h3 { font: 600 12px var(--ui); letter-spacing: .09em; text-transform: uppercase;
       <button class="tb" id="bPustaka">Pustaka</button>
       <button class="tb" id="bInfo">Info</button>
     </span>
+    <span id="modeLahan" role="group" aria-label="Jenis lahan">
+      <button class="tb" id="mPabrik" aria-pressed="true">Pabrik</button>
+      <button class="tb" id="mKebun" aria-pressed="false">Kebun</button>
+    </span>
     <input id="namaDoc" aria-label="Nama rancangan" spellcheck="false">
     <button class="tb" id="bBaru">Baru</button>
     <button class="tb" id="bBuka">Buka</button>
@@ -288,7 +290,7 @@ h3 { font: 600 12px var(--ui); letter-spacing: .09em; text-transform: uppercase;
       <button id="tNeraca" role="tab" aria-selected="false">Neraca</button>
       <button id="tRantai" role="tab" aria-selected="false">Rantai</button>
       <button id="tJalur" role="tab" aria-selected="false">Jalur</button>
-      <button id="tKebun" role="tab" aria-selected="false">Kebun</button>
+      <button id="tKebun" role="tab" aria-selected="false" hidden>Panen</button>
     </div>
     <div id="isiInfo"></div>
   </aside>
@@ -328,7 +330,19 @@ const AIC = (() => {
     pylon_x: { n: "Xiranite Pylon", t: 3, p: 0, w: 2, d: 2, bi: 0, pi: 0, bo: 0, po: 0, listrik: "tiang", menara: true, wuling: true },
     conduit_out: { n: "Conduit Outlet", t: 3, p: 0, w: 3, d: 3, bi: 0, pi: 0, bo: 0, po: 1, sumber: "pompa", laju: 60, wuling: true },
     relay: { n: "Relay Tower", t: 1, p: 0, w: 2, d: 2, bi: 0, pi: 0, bo: 0, po: 0, listrik: "relay" },
+    // Kebun. Ukuran dan port dari data EnKAD; ukuran Auto-Farmer tidak ada di sumber, hanya penanda.
+    sprinkler: { n: "Sprinkler", t: 3, p: 10, w: 3, d: 3, bi: 0, pi: 1, bo: 0, po: 0, buang: "limbah", semprot: true, wuling: true },
+    liquid_storager_1: { n: "Fluid Tank", t: 2, p: 0, w: 3, d: 3, bi: 0, pi: 1, bo: 0, po: 1, lewat: true, wuling: true },
+    autofarmer: { n: "Auto-Farmer", t: 3, p: 0, w: 3, d: 3, bi: 0, pi: 0, bo: 0, po: 0, autofarm: true },
   };
+  const PETAK = [
+    ["soil_sp_3", "Redjade Ginseng", "item_plant_sp_3", "wuling"], ["soil_sp_4", "Amber Rice", "item_plant_sp_4", "wuling"],
+    ["soil_grass_2", "Yazhen", "item_plant_grass_2", "wuling", "Thorny Yazhen"], ["soil_grass_1", "Jincao", "item_plant_grass_1", "wuling", "Fluffed Jincao"],
+    ["soil_sp_1", "Reed Rye", "item_plant_sp_1", "valley"], ["soil_sp_2", "Tartpepper", "item_plant_sp_2", "valley"],
+    ["soil_moss_1", "Buckflower", "item_plant_moss_1", "valley", "Firebuckle"], ["soil_moss_2", "Citrome", "item_plant_moss_2", "valley", "Umbraline"],
+    ["soil_bbflower_1", "Aketine", "item_plant_bbflower_1", "valley"], ["soil_moss_3", "Sandleaf", "item_plant_moss_3", "valley"],
+  ].concat(["Cabbage", "Sourberry", "Crunchcane", "Matoberry", "Whitemelon", "Relishroom", "Pingtuber", "Ballpea", "Oilseed Bloom"].map(n => ["soil_corp_" + n.split(" ")[0].toLowerCase(), n, null, "lukisan"]));
+  for (const [id, tanaman, i, lahan, varian] of PETAK) TAMBAHAN[id] = { n: tanaman + " Plot", t: 2, p: 0, w: 4, d: 4, bi: 0, pi: 0, bo: 0, po: 0, petak: true, tanaman, i, lahan, varian, ukuranTebak: lahan === "lukisan" };
   const TAMBANG = ["item_originium_ore", "item_iron_ore", "item_quartz_sand", "item_copper_ore"];
 
   const NAMA_ID = {
@@ -349,6 +363,7 @@ const AIC = (() => {
     D.mesin.unloader_1.sumber = "depot";
     D.mesin.loader_1.buang = "depot";
     D.mesin.power_station_1.buang = "bakar";
+    Object.assign(D.mesin.vaporizer_1, { buang: "limbah", kabut: true });
     RES = {};
     for (const r of D.resep) RES[r.id] = r;
     D.tambang = TAMBANG;
@@ -361,6 +376,107 @@ const AIC = (() => {
 
   function docBaru(nama) {
     return { v: 2, nama: nama || "Rancangan baru", area: { w: 64, h: 44 }, dayaDasar: 200, m: [], b: {}, p: {}, seq: 1 };
+  }
+
+  // ---- kebun: lahan tanam di luar AIC ----
+  // Ukuran petak 4x4, Sprinkler 3x3, Fluid Tank 3x3 dari data bangunan di EnKAD. Jangkauan Sprinkler tidak ada di
+  // sumber mana pun: panduan GameWith hanya menyebut dua petak tepat di depannya, jadi kotak 8x4 adalah anggapan.
+  const LAHAN_KEBUN = {
+    wuling: { n: "Agricultural Test Site", tempat: "Wuling City", maks: 20, area: { w: 24, h: 44 }, sprinkler: true, otomatis: true },
+    valley: { n: "Eco-Farm", tempat: "Originium Science Park, Valley IV", maks: 16, area: { w: 20, h: 20 }, sprinkler: false, otomatis: false },
+    lukisan: { n: "Farm Si's Painting", tempat: "Yuanyuan Manor, Wuling", maks: null, area: { w: 24, h: 24 }, sprinkler: false, otomatis: true },
+  };
+  function kebunDoc(doc) {
+    const a = doc.kebun && typeof doc.kebun === "object" ? doc.kebun : {};
+    const angka = (v, d, lo, hi) => (v !== null && v !== "" && Number.isFinite(+v) ? Math.max(lo, Math.min(hi, +v)) : d);
+    return {
+      lahan: LAHAN_KEBUN[a.lahan] ? a.lahan : "wuling", menit: angka(a.menit, 60, 1, 10080), hasil: angka(a.hasil, 2, 0, 1000), panen: angka(a.panen, 3, 0, 1440),
+      pupuk: typeof a.pupuk === "string" ? a.pupuk : "", xHasil: angka(a.xHasil, 1, 0, 100), xWaktu: angka(a.xWaktu, 1, 0.01, 10), semprotL: angka(a.semprotL, 8, 1, 40), semprotJ: angka(a.semprotJ, 4, 1, 40),
+    };
+  }
+  function kebunBaru(lahan, nama) {
+    const L = LAHAN_KEBUN[lahan] || LAHAN_KEBUN.wuling;
+    return Object.assign(docBaru(nama || "Kebun " + L.n), { jenis: "kebun", kebun: { lahan: LAHAN_KEBUN[lahan] ? lahan : "wuling" }, tepiLuar: true, area: { w: L.area.w, h: L.area.h } });
+  }
+  // Tata letak panduan: 5 baris 4 kolom, tiap Sprinkler menghadap dua petak di depannya, 6 tiang, pompa di air sisi barat.
+  function kebunContoh() {
+    const doc = kebunBaru("wuling", "Kebun Wuling 20 petak");
+    const taruh = (f, x, y, s) => { const m = Object.assign({ id: "m" + doc.seq++, f, x, y, r: 0 }, s); doc.m.push(m); return m; };
+    const pipa = (x, y, t) => { doc.p[key(x, y)] = t; };
+    const tanam = ["soil_sp_3", "soil_sp_3", "soil_sp_4", "soil_sp_4"].concat(["soil_grass_2", "soil_grass_2", "soil_grass_1", "soil_grass_1"]);
+    taruh("pump_1", -5, 2, { item: "item_liquid_water" });
+    pipa(-2, 3, { d: 0 });
+    taruh("liquid_storager_1", -1, 2);
+    pipa(2, 3, { d: 0 });
+    for (let baris = 0; baris < 5; baris++) {
+      const y = 3 + baris * 8;
+      if (baris > 0) for (let q = y - 7; q < y; q++) pipa(3, q, { d: 1 });
+      pipa(3, y, baris < 4 ? { t: "split", out: [0, 1] } : { d: 0 });
+      for (let q = 4; q <= 4; q++) pipa(q, y, { d: 0 });
+      pipa(5, y, { t: "split", out: [0, 1] }); pipa(5, y + 1, { d: 1 }); pipa(5, y + 2, { d: 0 });
+      for (let q = 6; q <= 12; q++) pipa(q, y, { d: 0 });
+      pipa(13, y, { d: 1 }); pipa(13, y + 1, { d: 1 }); pipa(13, y + 2, { d: 0 });
+      for (const x of [6, 14]) taruh("sprinkler", x, y + 1);
+      for (let k = 0; k < 4; k++) taruh(tanam[(baris * 4 + k) % tanam.length], 4 + k * 4, y + 4);
+    }
+    for (const [x, y] of [[0, 8], [0, 24], [0, 36], [20, 8], [20, 24], [20, 36]]) taruh("pylon_x", x, y);
+    return doc;
+  }
+  function kotakSemprot(m, opsi) {
+    const u = ukur(m), d = arahAlir(m.r), cx = m.x + u.w / 2, cy = m.y + u.h / 2, L = opsi.semprotL, J = opsi.semprotJ;
+    if (d === 0) return { x0: m.x + u.w, x1: m.x + u.w + J, y0: cy - L / 2, y1: cy + L / 2 };
+    if (d === 2) return { x0: m.x - J, x1: m.x, y0: cy - L / 2, y1: cy + L / 2 };
+    if (d === 1) return { x0: cx - L / 2, x1: cx + L / 2, y0: m.y + u.h, y1: m.y + u.h + J };
+    return { x0: cx - L / 2, x1: cx + L / 2, y0: m.y - J, y1: m.y };
+  }
+  const kotakKabut = m => { const u = ukur(m); return { x0: m.x + u.w / 2 - 6.5, x1: m.x + u.w / 2 + 6.5, y0: m.y + u.h / 2 - 6.5, y1: m.y + u.h / 2 + 6.5 }; };
+  // Petak mana yang disiram otomatis. Tanpa sim, sumber dianggap sudah dapat air.
+  function siramKebun(doc, sim) {
+    const o = kebunDoc(doc), hasil = new Map(), pakai = new Map();
+    const dapat = (m, i) => { if (!sim) return true; const h = sim.mesin[m.id]; return !!(h && h.masuk && h.masuk[i] > 0); };
+    const petak = doc.m.filter(m => D.mesin[m.f].petak);
+    for (const s of doc.m) {
+      const f = D.mesin[s.f];
+      if (f.semprot && dapat(s, "item_liquid_water")) {
+        const k = kotakSemprot(s, o);
+        for (const p of petak) {
+          const u = ukur(p), ox = Math.min(k.x1, p.x + u.w) - Math.max(k.x0, p.x), oy = Math.min(k.y1, p.y + u.h) - Math.max(k.y0, p.y);
+          // Menempel sedikit tidak dihitung: sisi lebar harus kena minimal 2 petak
+          const [lebar, dalam] = arahAlir(s.r) % 2 ? [ox, oy] : [oy, ox];
+          if (lebar >= Math.min(2, o.semprotL) && dalam >= 1) { hasil.set(p.id, "Sprinkler"); pakai.set(s.id, (pakai.get(s.id) || 0) + 1); }
+        }
+      } else if (f.kabut && dapat(s, "item_gas_water")) {
+        const k = kotakKabut(s);
+        for (const p of petak) {
+          const u = ukur(p);
+          if (p.x >= k.x0 && p.y >= k.y0 && p.x + u.w <= k.x1 && p.y + u.h <= k.y1) { hasil.set(p.id, "Gas Dispersing Unit"); pakai.set(s.id, (pakai.get(s.id) || 0) + 1); }
+        }
+      }
+    }
+    return { petak: hasil, pakai };
+  }
+  function periksaKebun(doc, sim, tambah) {
+    const o = kebunDoc(doc), L = LAHAN_KEBUN[o.lahan], petak = doc.m.filter(m => D.mesin[m.f].petak), { petak: basah, pakai } = siramKebun(doc, sim);
+    if (L.maks && petak.length > L.maks) { const [x, y] = pusat(petak[L.maks]); tambah("err", "petakMaks", `${L.n} menampung ${L.maks} petak, denah ini ${petak.length}`, x, y, petak[L.maks].id); }
+    for (const m of petak) {
+      const f = D.mesin[m.f], [x, y] = pusat(m);
+      if (f.lahan !== o.lahan) tambah("warn", "lahanSalah", `${f.tanaman} bukan tanaman ${L.n}`, x, y, m.id);
+      else if (L.sprinkler && !basah.has(m.id)) tambah("warn", "siram", `${f.n} tidak kena Sprinkler, harus disiram manual`, x, y, m.id);
+    }
+    const kabut = [];
+    for (const m of doc.m) {
+      const f = D.mesin[m.f], [x, y] = pusat(m);
+      if ((f.semprot || f.kabut) && o.lahan === "valley") tambah("err", "semprot", `${f.n} tidak bisa dipakai di Valley IV`, x, y, m.id);
+      else if (f.semprot && sim.mesin[m.id] && sim.mesin[m.id].masuk.item_liquid_water > 0 && !pakai.get(m.id)) tambah("warn", "semprot", `Sprinkler tidak menghadap petak mana pun`, x, y, m.id);
+      if (f.kabut) {
+        kabut.push(m);
+        const h = sim.mesin[m.id], ada = h ? Object.keys(h.masuk).filter(i => h.masuk[i] > 0) : [];
+        if (ada.length && !ada.includes("item_gas_water")) tambah("warn", "kabut", `${f.n} diisi ${D.barang[ada[0]].n}, penyiraman butuh lingkungan Humid`, x, y, m.id);
+      }
+      if (f.autofarm && !L.otomatis) tambah("err", "autoGanda", `Auto-Farmer tidak tersedia di ${L.n}`, x, y, m.id);
+    }
+    kabut.forEach((a, i) => { const ka = kotakKabut(a); for (const b of kabut.slice(i + 1)) { const kb = kotakKabut(b); if (ka.x0 < kb.x1 && kb.x0 < ka.x1 && ka.y0 < kb.y1 && kb.y0 < ka.y1) { const [x, y] = pusat(b); tambah("warn", "kabut", "Area dua Gas Dispersing Unit bertumpuk", x, y, b.id); } } });
+    for (const m of doc.m.filter(q => D.mesin[q.f].autofarm).slice(1)) { const [x, y] = pusat(m); tambah("err", "autoGanda", "Auto-Farmer hanya satu per lahan", x, y, m.id); }
   }
 
   // ---- geometri ----
@@ -876,13 +992,14 @@ const AIC = (() => {
         if (!nempel) tambah("err", "bus", `${nama} tidak menempel ke Depot Bus`, cx, cy, m.id);
       }
       // Conduit dan tiangnya boleh di luar tepi lahan, seperti di foto Wuling 1.2
-      if (!(doc.tepiLuar && (m.f === "conduit_out" || m.f === "pylon_x" || m.f === "pylon")) && (m.x < 0 || m.y < 0 || m.x + u.w > doc.area.w || m.y + u.h > doc.area.h)) tambah("err", "area", `${nama} keluar dari area bangun`, cx, cy, m.id);
+      if (!(doc.jenis === "kebun" ? !f.petak : doc.tepiLuar && (m.f === "conduit_out" || m.f === "pylon_x" || m.f === "pylon")) && (m.x < 0 || m.y < 0 || m.x + u.w > doc.area.w || m.y + u.h > doc.area.h)) tambah("err", "area", `${nama} keluar dari area bangun`, cx, cy, m.id);
       for (let y = m.y; y < m.y + u.h; y++) for (let x = m.x; x < m.x + u.w; x++) {
         const k = key(x, y);
         if (peta.has(k) && peta.get(k) !== m) tambah("err", "tumpang", `${nama} menumpuk ${D.mesin[peta.get(k).f].n}`, x, y, m.id);
         peta.set(k, m);
       }
-      if (f.listrik || f.statis) continue;
+      if (f.listrik || f.statis || f.petak || f.autofarm) continue;
+      if ((f.semprot || f.kabut) && !net.ports.some(p => p.m === m && adaMasuk(net, p))) { tambah("err", "port", `${nama}: pipa masuk belum tersambung`, cx, cy, m.id); continue; }
       const r = resepMesin(m);
       if (!f.sumber && !f.buang && !f.lewat && !r && !m.recs) { tambah("err", "resep", `${nama} belum punya resep`, cx, cy, m.id); continue; }
       if (f.sumber && !m.item) { tambah("err", "resep", `${nama} belum dipilih barangnya`, cx, cy, m.id); continue; }
@@ -951,6 +1068,7 @@ const AIC = (() => {
     }
     // Satu lahan hanya punya satu PAC
     for (const m of doc.m.filter(q => D.mesin[q.f].hub).slice(1)) { const [x, y] = pusat(m); tambah("err", "pacGanda", "PAC hanya bisa satu", x, y, m.id); }
+    if (doc.jenis === "kebun") periksaKebun(doc, sim, tambah);
     // listrik
     const sumberDaya = doc.m.filter(m => D.mesin[m.f].listrik);
     const butuh = doc.m.filter(m => D.mesin[m.f].p > 0);
@@ -1131,7 +1249,7 @@ const AIC = (() => {
       nilai: util >= 0.9 ? "Efisien" : util >= 0.7 ? "Cukup" : "Boros" };
   }
 
-  return { POS_WULING, pasarWuling, PANCING, jalurSabuk, ekonomi, batasDenah, HARGA, rantai, resepUntuk, muat, DX, DY, key, lawan, LAJU, docBaru, ukur, arahAlir, porta, petaMesin, bisaTaruh, rute, dirDari, pasangJalur, bangunJaringan, simulasi, periksa, resepMesin, pusat,
+  return { LAHAN_KEBUN, kebunDoc, kebunBaru, kebunContoh, kotakSemprot, kotakKabut, siramKebun, POS_WULING, pasarWuling, PANCING, jalurSabuk, ekonomi, batasDenah, HARGA, rantai, resepUntuk, muat, DX, DY, key, lawan, LAJU, docBaru, ukur, arahAlir, porta, petaMesin, bisaTaruh, rute, dirDari, pasangJalur, bangunJaringan, simulasi, periksa, resepMesin, pusat,
     get data() { return D; }, get RES() { return RES; } };
 })();
 if (typeof module !== "undefined") module.exports = AIC;
@@ -1433,9 +1551,24 @@ function latarFoto(g, z, ox, oy, w, h) {
   }
   g.strokeStyle = "#e7cb4d"; g.lineWidth = Math.max(1.5, z * 0.14); g.strokeRect(ox, oy, DOC.area.w * z, DOC.area.h * z);
 }
+function gambarPetak(g, z, x, y, w, h, m, f) {
+  const c = z * 0.07, bx = x + c, by = y + c, bw = w - 2 * c, bh = h - 2 * c;
+  g.fillStyle = "#e6dcc3"; g.fillRect(bx, by, bw, bh);
+  g.strokeStyle = "#b8a983"; g.lineWidth = Math.max(0.6, z * 0.025); g.beginPath();
+  for (let i = 1; i < 4; i++) { const py = Math.round(by + bh * i / 4) + 0.5; g.moveTo(bx + z * 0.15, py); g.lineTo(bx + bw - z * 0.15, py); }
+  g.stroke();
+  g.strokeStyle = WARNA.tinta; g.lineWidth = Math.max(0.8, z * 0.028); g.strokeRect(bx, by, bw, bh);
+  const cx = x + w / 2, cy = y + h / 2 - (z >= 14 ? z * 0.28 : 0), r = Math.min(z * 1.05, w * 0.3);
+  if (f.i) ikon(g, f.i, cx, cy, r);
+  else { g.fillStyle = "#17703a"; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fill(); g.fillStyle = "#fff"; g.font = `700 ${r}px "Chakra Petch", sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(f.tanaman[0], cx, cy + r * 0.05); }
+  if (z >= 14) { g.fillStyle = WARNA.tinta; g.font = `600 ${Math.max(9, z * 0.4)}px "Chakra Petch", sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(f.tanaman, cx, y + h - z * 0.55, w - z * 0.3); }
+  // Tetes biru: petak ini disiram otomatis
+  if (z >= 8 && ED.siram && ED.siram.get(m.id)) { const s = Math.max(3, z * 0.3), tx = x + w - s - z * 0.22, ty = y + s + z * 0.22; g.fillStyle = "#1668e3"; g.beginPath(); g.arc(tx, ty, s * 0.62, 0, 7); g.fill(); poli(g, [[tx - s * 0.56, ty - s * 0.2], [tx, ty - s * 1.15], [tx + s * 0.56, ty - s * 0.2]]); g.fill(); }
+}
 function gambarMesin(g, z, ox, oy, m, opsi) {
   opsi = opsi || {};
   const f = D.mesin[m.f], u = AIC.ukur(m), x = ox + m.x * z, y = oy + m.y * z, w = u.w * z, h = u.h * z, alir = AIC.arahAlir(m.r);
+  if (f.petak) { gambarPetak(g, z, x, y, w, h, m, f); return; }
   if (opsi.foto && !f.statis) { mesinFoto(g, z, ox, oy, m, f); return; }
   if (f.statis) {
     gambarLahanUtama(g, z, m, x, y, w, h);
@@ -1466,12 +1599,17 @@ function gambarMesin(g, z, ox, oy, m, opsi) {
       const s = r * 1.55;
       poli(g, [[cx - s, cy - s * 0.9], [cx + s * 0.55, cy - s * 0.9], [cx + s, cy - s * 0.4], [cx + s, cy + s * 0.9], [cx - s * 0.5, cy + s * 0.9], [cx - s, cy + s * 0.45]]); g.fill();
       if (f.buang === "bakar") { g.fillStyle = "#26272a"; poli(g, [[cx + r * 0.25, cy - r * 1.05], [cx - r * 0.6, cy + r * 0.15], [cx - r * 0.05, cy + r * 0.15], [cx - r * 0.3, cy + r * 0.95], [cx + r * 0.65, cy - r * 0.25], [cx + r * 0.05, cy - r * 0.25]]); g.fill(); }
+      else if (f.semprot || m.f === "liquid_storager_1") ikon(g, "item_liquid_water", cx, cy, r);
+      else if (f.kabut) ikon(g, "item_gas_water", cx, cy, r);
+      else if (f.autofarm) { g.strokeStyle = "#17703a"; g.lineWidth = Math.max(1.5, z * 0.11); g.beginPath(); g.moveTo(cx, cy + r); g.lineTo(cx, cy - r * 0.2); g.moveTo(cx, cy + r * 0.2); g.quadraticCurveTo(cx - r, cy, cx - r * 0.9, cy - r * 0.9); g.moveTo(cx, cy - r * 0.2); g.quadraticCurveTo(cx + r, cy - r * 0.3, cx + r * 0.9, cy - r * 1.1); g.stroke(); }
       else if (f.buang !== "depot") ikon(g, barangMesin(m), cx, cy, r);
     } else if (f.sumber || f.buang) {
       const id = barangMesin(m);
       if (id && z >= 9) ikon(g, id, cx, cy, z * 0.46);
     }
   }
+  if (f.semprot) { const d = alir, s = Math.max(3, z * 0.3); for (const i of [0.62, 1.08]) chevron(g, x + w / 2 + DX[d] * i * z, y + h / 2 + DY[d] * i * z, d, s, "#1668e3", Math.max(1.5, z * 0.09)); }
+  if (f.autofarm && z >= 12) { g.fillStyle = WARNA.tinta; g.font = `700 ${z * 0.46}px "Chakra Petch", sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("AUTO", x + w / 2, y + h - z * 0.42, w - z * 0.2); }
   const hs = !opsi.tanpaStatus && ED.sim && ED.sim.mesin[m.id];
   if (hs && z >= 14 && (m.rec || (f.sumber === "tambang" && m.item))) {
     if (hs.util < 0.985) {
@@ -1594,6 +1732,15 @@ function gambarAdegan(g, z, ox, oy, w, h, ekspor) {
       g.fillStyle = "rgba(22,104,227,.09)"; g.strokeStyle = "rgba(22,104,227,.5)"; g.lineWidth = 1;
       g.fillRect(ox + (m.x - r) * z, oy + (m.y - r) * z, (u.w + 2 * r) * z, (u.h + 2 * r) * z);
       g.strokeRect(ox + (m.x - r) * z, oy + (m.y - r) * z, (u.w + 2 * r) * z, (u.h + 2 * r) * z);
+    }
+  }
+  if (modeKebun()) {
+    const o = AIC.kebunDoc(DOC);
+    for (const m of DOC.m) {
+      const f = D.mesin[m.f]; if (!f.semprot && !f.kabut) continue;
+      const k = f.semprot ? AIC.kotakSemprot(m, o) : AIC.kotakKabut(m);
+      g.fillStyle = "rgba(22,104,227,.1)"; g.strokeStyle = "rgba(22,104,227,.55)"; g.lineWidth = 1; g.setLineDash([5, 4]);
+      g.fillRect(ox + k.x0 * z, oy + k.y0 * z, (k.x1 - k.x0) * z, (k.y1 - k.y0) * z); g.strokeRect(ox + k.x0 * z, oy + k.y0 * z, (k.x1 - k.x0) * z, (k.y1 - k.y0) * z); g.setLineDash([]);
     }
   }
   if (ED.vis.b) gambarLapis(g, z, ox, oy, "b", DOC.b, ED.bentuk.b);
@@ -1750,6 +1897,7 @@ function jalankanSim() {
   ED.sim = AIC.simulasi(DOC);
   // tiruan dari gambar belum punya resep, galatnya hanya menutupi denah
   ED.temuan = DOC.sketsa ? [] : AIC.periksa(DOC, ED.sim, ED.opsi);
+  ED.siram = modeKebun() ? AIC.siramKebun(DOC, ED.sim).petak : new Map();
   segarPustaka();
   // titik animasi: jarak sepanjang aliran supaya barang tampak bersambung
   const net = ED.sim.net, jarak = new Map(), antre = [];
@@ -1818,6 +1966,7 @@ function cekKlip(hx, hy) {
 function jatuhkan(hx, hy) {
   const k = ED.klip;
   if (!k.asal && k.m.some(m => D.mesin[m.f].hub) && DOC.m.some(m => D.mesin[m.f].hub)) { kabar("PAC hanya bisa satu"); return false; }
+  if (!k.asal && k.m.some(m => D.mesin[m.f].autofarm) && DOC.m.some(m => D.mesin[m.f].autofarm)) { kabar("Auto-Farmer hanya satu per lahan"); return false; }
   if (!cekKlip(hx, hy)) { kabar("Tidak bisa ditaruh di sini, ada yang menghalangi"); return false; }
   const taruh = () => {
     ED.sel.clear();
@@ -1861,6 +2010,7 @@ const SIMPUL = ["split", "merge", "bridge", "gate"];
 function tulisRel() {
   const rel = $("rel"); rel.textContent = "";
   for (const a of ALAT) {
+    if (a.id === "sabuk" && modeKebun()) continue;
     if (a.sisip) { rel.append(bikin("div", "relpisah")); continue; }
     const b = bikin("button", "alat" + (a.warna ? " w-" + a.warna : ""));
     b.title = `${a.nama} (${a.kunci})`; b.setAttribute("aria-label", a.nama); b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${a.svg}</svg><span class="labelAlat">${a.label}</span><kbd>${a.kunci}</kbd>`;
@@ -1870,6 +2020,8 @@ function tulisRel() {
   }
 }
 function pilihAlat(id) {
+  if (id === "sabuk" && modeKebun()) return; // lahan tanam tidak memakai sabuk
+  if (modeKebun()) ED.lapis = "p";
   batalKlip();
   ED.alat = id; ED.rute = null; ED.simpul = null;
   if (id === "sabuk" || id === "pipa") { ED.lapis = id === "sabuk" ? "b" : "p"; ED.rute = { lapis: ED.lapis, a: null, lanjut: false, jalur: null }; }
@@ -2161,6 +2313,7 @@ const RESEP_CONTOH = { furnance_1: "furnance_iron_nugget_1", grinder_1: "grinder
 const ITEM_CONTOH = f => (f.startsWith("rig") ? "item_iron_ore" : f === "pump_2" ? "item_liquid_acid" : f.startsWith("pump") || f === "conduit_out" ? "item_liquid_water" : f === "gas_pump_1" ? "item_gas_inert" : null);
 let ulangThumb = 0;
 const cacheFoto = {};
+if (GAMBAR_MESIN && GAMBAR_KEBUN) for (const f in D.mesin) { const u = GAMBAR_KEBUN[D.mesin[f].petak ? D.mesin[f].tanaman : D.mesin[f].n]; if (u && !GAMBAR_MESIN[f]) GAMBAR_MESIN[f] = u; }
 function fotoMesin(f) {
   if (!GAMBAR_MESIN || !GAMBAR_MESIN[f]) return null;
   if (!cacheFoto[f]) {
@@ -2217,7 +2370,7 @@ function chipResep(r, tekan, aktif) {
   b.onclick = tekan;
   return b;
 }
-const WARNA_GRUP = { Sumber: "aBiru", Pengolah: "aHijau", "Tujuan akhir": "aKuning", "Lahan utama": "aAbu", Listrik: "aKuning", Logistik: "aBiru" };
+const WARNA_GRUP = { "Petak tanaman": "aHijau", Penyiraman: "aBiru", Otomatis: "aKuning", Sumber: "aBiru", Pengolah: "aHijau", "Tujuan akhir": "aKuning", "Lahan utama": "aAbu", Listrik: "aKuning", Logistik: "aBiru" };
 function hitungDiDenah() { const n = {}; for (const m of DOC.m) n[m.f] = (n[m.f] || 0) + 1; return n; }
 let tandaPustaka = "";
 function segarPustaka() { const t = JSON.stringify(hitungDiDenah()); if (t !== tandaPustaka) { tandaPustaka = t; tulisPustaka(); } }
@@ -2245,7 +2398,8 @@ function tulisPustaka() {
   }
   box.append(sr);
   const cocok = n => !q || n.toLowerCase().includes(q);
-  for (const [judul, ids] of GRUP) {
+  if (modeKebun()) { const o = AIC.kebunDoc(DOC); if (!q && !hanyaDenah) box.append(bikin("div", "sub catatanLahan", AIC.LAHAN_KEBUN[o.lahan].n + ". " + CATATAN_LAHAN[o.lahan])); }
+  for (const [judul, ids] of grupPustaka()) {
     const isi = ids.filter(f => D.mesin[f] && (cocok(D.mesin[f].n) || (D.mesin[f].en && cocok(D.mesin[f].en))) && (!hanyaDenah || dipakai[f]));
     if (!isi.length) continue;
     if (!kepalaGrup(box, judul, isi.length, !!q)) continue;
@@ -2255,19 +2409,21 @@ function tulisPustaka() {
       t.append(bikin("span", "namaBaris", i.n));
       pil.append(bikin("span", "pilK", `${i.w}×${i.d}`));
       if (i.p) pil.append(bikin("span", "pilK daya", `${i.p} daya`));
-      if (i.wuling) pil.append(bikin("span", "pilK wuling", "Wuling"));
+      if (i.wuling && !modeKebun()) pil.append(bikin("span", "pilK wuling", "Wuling"));
+      if (i.varian) pil.append(bikin("span", "pilK wuling", i.varian));
       t.append(pil);
       b.append(im, t);
       if (dipakai[f]) b.append(bikin("span", "jumlahBaris", "×" + dipakai[f]));
-      if (i.hub && dipakai[f]) { b.disabled = true; b.classList.add("mati"); pil.append(bikin("span", "pilK", "sudah ada, hanya bisa satu")); }
+      if ((i.hub || i.autofarm) && dipakai[f]) { b.disabled = true; b.classList.add("mati"); pil.append(bikin("span", "pilK", "sudah ada, hanya bisa satu")); }
       b.title = i.en && i.en !== i.n ? `${i.n} (${i.en})` : i.n;
       b.setAttribute("aria-pressed", String(!!(ED.klip && ED.klip.ulang && ED.klip.m[0].f === f && !ED.klip.m[0].rec)));
-      b.onclick = () => mulaiTaruh(f, f.startsWith("rig") ? { item: "item_iron_ore", mutu: 1 } : f === "conduit_out" ? { item: "item_liquid_water" } : f.startsWith("pump") ? { item: f === "pump_2" ? "item_liquid_acid" : "item_liquid_water" } : {});
+      b.onclick = () => mulaiTaruh(f, f.startsWith("rig") ? { item: "item_iron_ore", mutu: 1 } : f === "conduit_out" ? { item: "item_liquid_water" } : f.startsWith("pump") ? { item: f === "pump_2" ? "item_liquid_acid" : "item_liquid_water" } : f === "gas_pump_1" && modeKebun() ? { item: "item_gas_water" } : {});
       box.append(b);
     }
   }
-  const simpul = hanyaDenah ? [] : SIMPUL_PUSTAKA.filter(s => cocok(s[2]));
-  const jalur = hanyaDenah ? [] : [["sabuk", "Sabuk", "Transport Belt", "E"], ["pipa", "Pipa", "Pipeline", "Q"]].filter(a => cocok(a[1]) || cocok(a[2]));
+  const tanpaPipa = modeKebun() && !GRUP_KEBUN[AIC.kebunDoc(DOC).lahan].some(g => g[0] === "Penyiraman");
+  const simpul = hanyaDenah || tanpaPipa ? [] : SIMPUL_PUSTAKA.filter(s => cocok(s[2]) && (!modeKebun() || s[0] === "p"));
+  const jalur = hanyaDenah || tanpaPipa ? [] : [["sabuk", "Sabuk", "Transport Belt", "E"], ["pipa", "Pipa", "Pipeline", "Q"]].filter(a => (cocok(a[1]) || cocok(a[2])) && !(modeKebun() && a[0] === "sabuk"));
   if (simpul.length + jalur.length && kepalaGrup(box, "Logistik", simpul.length + jalur.length, !!q)) {
     for (const [id, n, en, tombol] of jalur) {
       const b = bikin("button", "baris"), im = bikin("img"), t = bikin("span", "t"), pil = bikin("span", "pilBaris");
@@ -2294,7 +2450,7 @@ function tulisPustaka() {
       box.append(b);
     }
   }
-  if (q) {
+  if (q && !modeKebun()) {
     const hasil = D.resep.filter(r => D.mesin[r.f] && teksResep(r).includes(q));
     if (hasil.length) {
       box.append(bikin("div", "grup aHijau statis", `Resep (${hasil.length})`));
@@ -2306,7 +2462,8 @@ function tulisPustaka() {
       }
     }
     if (box.childElementCount === 1) box.append(bikin("div", "sub kosongPustaka", `Tidak ada hasil untuk "${ED.cariTeks.trim()}".`));
-  } else if (hanyaDenah && box.childElementCount === 1) box.append(bikin("div", "sub kosongPustaka", "Denah ini masih kosong."));
+  } else if (q && box.childElementCount === 1) box.append(bikin("div", "sub kosongPustaka", `Tidak ada hasil untuk "${ED.cariTeks.trim()}".`));
+  else if (hanyaDenah && box.childElementCount === 1) box.append(bikin("div", "sub kosongPustaka", "Denah ini masih kosong."));
   box.scrollTop = posAtas;
 }
 function mulaiTaruh(f, sifat) {
@@ -2321,7 +2478,8 @@ $("cari").addEventListener("input", e => { ED.cariTeks = e.target.value; tulisPu
 // ---- panel info ----
 const TAB = [["tProperti", "properti"], ["tPeriksa", "periksa"], ["tNeraca", "neraca"], ["tRantai", "rantai"], ["tJalur", "jalur"], ["tKebun", "kebun"]];
 function pilihTab(t) {
-  ED.tab = t;
+  ED.tab = tabBoleh(t) ? t : modeKebun() ? "kebun" : "properti";
+  t = ED.tab;
   for (const [id, n] of TAB) $(id).setAttribute("aria-selected", String(n === t));
   tulisPanel();
   $("isiInfo").scrollTop = 0;
@@ -2347,7 +2505,7 @@ function panelProyek(box) {
   const kartu = (label, nilai, kelas, ket) => { const k = bikin("div", "stat " + (kelas || "")); k.append(bikin("span", "statLabel", label), bikin("b", "", nilai)); if (ket) k.append(bikin("span", "statKet", ket)); g.append(k); };
   kartu("Lahan terpakai", Math.round(dalam / luas * 100) + "%", "utama", `${uang(dalam)} dari ${uang(luas)} petak`);
   kartu("Bangunan", uang(DOC.m.length), "cBiru", `${DOC.m.filter(m => D.mesin[m.f].p > 0).length} memakai daya`);
-  kartu("Sabuk", uang(Object.keys(DOC.b).length) + " petak", "cAwas");
+  if (!modeKebun()) kartu("Sabuk", uang(Object.keys(DOC.b).length) + " petak", "cAwas");
   kartu("Pipa", uang(Object.keys(DOC.p).length) + " petak", "cBiru");
   box.append(g);
   const sp = bagian(box, "Pengaturan rancangan", "aBiru");
@@ -2359,6 +2517,7 @@ function panelProyek(box) {
   isian(f, "Jangkauan relay (petak)", ED.opsi.radiusRelay, "number", v => { ED.opsi.radiusRelay = Math.max(0, +v || 0); jalankanSim(); });
   sp.append(f);
   sp.append(bikin("div", "sub", "Jangkauan tiang dan relay belum terverifikasi dari sumber resmi. Samakan dengan yang kamu lihat di game."));
+  if (modeKebun()) sp.append(bikin("div", "sub", "Luas lahan tanam tidak ada di sumber mana pun, area ini hanya isian awal. Ukur di game, lalu ubah di sini."));
   // Daftar bangunan
   const per = {};
   for (const m of DOC.m) { const r = per[m.f] = per[m.f] || { n: 0, p: 0 }; r.n++; r.p += D.mesin[m.f].p || 0; }
@@ -2426,7 +2585,8 @@ function panelMesin(box, m) {
     box.append(sp);
     tabelMasukKeluar(box, hs);
   }
-  if (m.recs) {
+  if (panelMesinKebun(box, m, f)) { /* sudah ditulis */ }
+  else if (m.recs) {
     const b = bagian(box, "Resep bersamaan", "aHijau");
     for (const id of m.recs) b.append(bikin("div", "sub", AIC.RES[id].out.map(([i, a]) => `${a} ${D.barang[i].n}`).join(" + ")));
     b.append(bikin("div", "sub", "Expanded Crucible: semua resep berjalan bersamaan dalam satu wadah. Tiap port keluar membawa satu barang."));
@@ -2520,6 +2680,7 @@ const CEK = [
   { n: "Resep dan port", kode: ["resep", "port"], ok: "semua mesin punya resep dan tersambung" },
   { n: "Listrik", kode: ["listrik", "daya"], ok: "semua terjangkau tiang, daya cukup" },
   { n: "Kerja mesin", kode: ["util", "hambat"], ok: "semua mesin 100%" },
+  { n: "Kebun", kode: ["petakMaks", "lahanSalah", "siram", "semprot", "kabut", "autoGanda"], ok: "semua petak tersiram dan sesuai lahan", kebun: true },
 ];
 const SARAN = {
   tumpang: "Geser salah satu bangunan.",
@@ -2539,6 +2700,12 @@ const SARAN = {
   listrik: "Tambah tiang di dekatnya.",
   daya: "Tambah daya dasar di tab Properti, atau kurangi mesin.",
   hambat: "Tambah satu mesin pemasok di jalur ini.",
+  petakMaks: "Hapus petak yang berlebih.",
+  lahanSalah: "Ganti tanamannya di tab Properti, atau pilih lahan lain di tab Panen.",
+  siram: "Hadapkan Sprinkler ke petak ini, atau biarkan kalau kamu mau menyiram manual.",
+  semprot: "Putar dengan R sampai menghadap petak, atau hapus.",
+  kabut: "Isi dengan gas yang membuat lingkungan Humid, dan beri jarak antarunit.",
+  autoGanda: "Hapus Auto-Farmer ini.",
 };
 function saranTemuan(t) {
   if (t.kode !== "util") return SARAN[t.kode] || "";
@@ -2581,7 +2748,7 @@ function panelPeriksa(box) {
   const e = ED.temuan, s = ED.sim;
   if (DOC.sketsa) { box.append(bikin("h2", "", "Sketsa, belum bisa diperiksa"), bikin("div", "sub", "Denah ini tiruan dari gambar, jadi tidak disimulasikan.")); return; }
   const hitung = l => e.filter(x => x.lvl === l).length, err = hitung("err"), war = hitung("warn"), inf = hitung("info");
-  const ek = s ? AIC.ekonomi(DOC, s) : null, kurang = ek ? ek.bahan.filter(r => r.kurang) : [], belumIsi = ek ? ek.bahan.filter(r => r.selisih == null) : [];
+  const ek = s && !modeKebun() ? AIC.ekonomi(DOC, s) : null, kurang = ek ? ek.bahan.filter(r => r.kurang) : [], belumIsi = ek ? ek.bahan.filter(r => r.selisih == null) : [];
   // Spanduk kesimpulan
   const sp = bikin("div", "spanduk " + (err ? "err" : war || kurang.length ? "warn" : "oke"));
   sp.append(bikin("b", "", err ? `${err} galat harus dibetulkan` : war ? `${war} peringatan` : kurang.length ? "Bisa dibangun, bahan ada yang kurang" : inf ? "Bisa dibangun" : "Bersih, semua mesin 100%"));
@@ -2595,6 +2762,7 @@ function panelPeriksa(box) {
   const bg = bagian(box, "Daftar pemeriksaan", err ? "aMerah" : war || kurang.length ? "aKuning" : "aHijau");
   const tb = bikin("table", "neraca tabelCek"), isi = kepala(tb, ["Pemeriksaan", "Hasil"]);
   for (const c of CEK) {
+    if (c.kebun && !modeKebun()) continue;
     const a = e.filter(t => c.kode.includes(t.kode)), lvl = a.some(t => t.lvl === "err") ? "err" : a.some(t => t.lvl === "warn") ? "warn" : a.length ? "info" : "oke";
     const tr = bikin("tr"), kiri = bikin("td", "selCek");
     kiri.append(bikin("span", "tandaCek " + lvl, lvl === "oke" ? "✓" : lvl === "err" ? "✕" : "!"), c.n);
@@ -3108,131 +3276,163 @@ function panelJalur(box) {
   }
 }
 
-// ---- kebun: lahan tanam di luar AIC, petak (plot) tanpa Unit Penanam dan Unit Petik Benih ----
-const LAHAN_KEBUN = {
-  wuling: { n: "Agricultural Test Site", tempat: "Wuling City, timur laut Core AIC", maks: 20, kolom: 5, sprinkler: true, ket: "Batas 20 petak. Penyiraman bisa otomatis dengan Sprinkler. Auto-Farmer menyusul lewat misi Farming Automation.",
-    tanaman: [{ n: "Redjade Ginseng", i: "item_plant_sp_3" }, { n: "Amber Rice", i: "item_plant_sp_4" }, { n: "Yazhen", i: "item_plant_grass_2", varian: "Thorny Yazhen" }, { n: "Jincao", i: "item_plant_grass_1", varian: "Fluffed Jincao" }] },
-  valley: { n: "Eco-Farm", tempat: "Originium Science Park, Valley IV", maks: 16, kolom: 4, sprinkler: false, ket: "Semua disiram dan dipanen manual, Sprinkler tidak bisa dipasang. Batas 16 petak masih perkiraan dari panduan komunitas.",
-    tanaman: [{ n: "Reed Rye", i: "item_plant_sp_1" }, { n: "Tartpepper", i: "item_plant_sp_2" }, { n: "Buckflower", i: "item_plant_moss_1", varian: "Firebuckle" }, { n: "Citrome", i: "item_plant_moss_2", varian: "Umbraline" }, { n: "Aketine", i: "item_plant_bbflower_1" }, { n: "Sandleaf", i: "item_plant_moss_3" }] },
-  lukisan: { n: "Farm Si's Painting", tempat: "Wuling, dari misi A Painting Open for Business", maks: 20, kolom: 5, sprinkler: false, otomatis: true, ket: "Auto-Farmer menanam dan memanen otomatis. Hasilnya bahan masak untuk Innkeeping. Batas petak belum diketahui, 20 hanya isian awal.",
-    tanaman: ["Cabbage", "Sourberry", "Crunchcane", "Matoberry", "Whitemelon", "Relishroom", "Pingtuber", "Ballpea", "Oilseed Bloom"].map(n => ({ n })) },
+// ---- kebun: rancangan lahan tanam, kanvasnya sama, daftar mesin dan tabnya sendiri ----
+const modeKebun = () => DOC.jenis === "kebun";
+const GRUP_KEBUN = {
+  wuling: [["Penyiraman", ["sprinkler", "pump_1", "liquid_storager_1", "vaporizer_1", "gas_pump_1"]], ["Otomatis", ["autofarmer"]], ["Listrik", ["pylon_x", "relay"]]],
+  valley: [],
+  lukisan: [["Otomatis", ["autofarmer"]]],
 };
-// Isi dari rancangan bisa datang dari orang lain, jadi selalu dibersihkan sebelum dipakai
-function dataKebun() {
-  const a = DOC.kebun && typeof DOC.kebun === "object" ? DOC.kebun : {}, angka = (v, d, lo, hi) => (Number.isFinite(+v) && v !== null && v !== "" ? Math.max(lo, Math.min(hi, +v)) : d);
-  const lahan = LAHAN_KEBUN[a.lahan] ? a.lahan : "wuling", L = LAHAN_KEBUN[lahan], maks = Math.round(angka(a.jumlah && a.jumlah[lahan], L.maks, 1, 60));
-  const boleh = new Set(L.tanaman.map(t => t.n)), asal = a.petak && Array.isArray(a.petak[lahan]) ? a.petak[lahan] : [];
-  const petak = Array.from({ length: maks }, (_, i) => (boleh.has(asal[i]) ? asal[i] : null));
-  return { lahan, L, maks, petak, menit: angka(a.menit, 60, 1, 10080), hasil: angka(a.hasil, 2, 0, 1000), panen: angka(a.panen && a.panen[lahan], L.otomatis ? 0 : 3, 0, 1440), pupuk: !!a.pupuk };
+const CATATAN_LAHAN = {
+  wuling: "Sumber air ada di sisi barat lahan. Pompa, pipa, dan tiang boleh di luar area, tapi petak harus di dalam.",
+  valley: "Di sini belum ada mesin: Sprinkler tidak bisa dipasang dan Auto-Farmer belum tersedia. Menanam, menyiram, dan memanen dilakukan manual.",
+  lukisan: "Hasilnya bahan masak untuk Innkeeping. Auto-Farmer menyimpan panen sampai penuh, lalu bisa dikirim ke Depot Wuling.",
+};
+const PUPUK_KEBUN = [
+  ["", "Tanpa pupuk", 1], ["muck", "Burdo-Muck: mempercepat", 1], ["rich", "Bumper-Rich: hasil ganda", 2], ["speed", "Bumper-Speed: mempercepat", 1],
+  ["double", "Bumper-Double: lebih cepat, lebih banyak", 1], ["supreme", "Bumper-Supreme: jauh lebih cepat dan banyak", 1],
+];
+function grupPustaka() {
+  if (!modeKebun()) return GRUP;
+  const o = AIC.kebunDoc(DOC);
+  return [["Petak tanaman", Object.keys(D.mesin).filter(f => D.mesin[f].petak && D.mesin[f].lahan === o.lahan)]].concat(GRUP_KEBUN[o.lahan]);
 }
-function ubahKebun(fn) { ubah(() => { const d = dataKebun(), a = DOC.kebun = { lahan: d.lahan, petak: Object.assign({}, DOC.kebun && DOC.kebun.petak), jumlah: Object.assign({}, DOC.kebun && DOC.kebun.jumlah), menit: d.menit, hasil: d.hasil, panen: Object.assign({}, DOC.kebun && DOC.kebun.panen), pupuk: d.pupuk }; a.petak[d.lahan] = d.petak; fn(a, d); }); }
-function gambarTanaman(t, kelas) {
-  const im = bikin("img", kelas || ""); im.alt = "";
-  const huruf = () => "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="#17703a"/><text x="16" y="22" font-family="sans-serif" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">${t.n[0]}</text></svg>`);
-  im.onerror = () => { im.onerror = null; im.src = t.i ? urlIkon(t.i) : huruf(); };
-  im.src = (GAMBAR_KEBUN && GAMBAR_KEBUN[t.n]) || (t.i ? urlIkon(t.i) : huruf());
-  return im;
+function terapkanMode() {
+  const k = modeKebun();
+  $("app").classList.toggle("modeKebun", k);
+  $("mPabrik").setAttribute("aria-pressed", String(!k)); $("mKebun").setAttribute("aria-pressed", String(k));
+  for (const [id, n] of TAB) $(id).hidden = !tabBoleh(n);
+  if (k) ED.lapis = "p";
+  if (!tabBoleh(ED.tab)) ED.tab = k ? "kebun" : "properti";
+  ED.cariTeks = ""; $("cari").value = "";
+  ED.siram = new Map();
+  tulisRel(); tulisPustaka();
 }
-function panelKebun(box) {
-  const d = dataKebun(), L = d.L, cari = n => L.tanaman.find(t => t.n === n);
-  if (!cari(ED.kebunKuas) && ED.kebunKuas !== null) ED.kebunKuas = L.tanaman[0].n;
-  const terisi = d.petak.filter(Boolean).length, kali = d.pupuk ? 2 : 1;
-  const siklusHari = d.panen === 0 ? 1440 / d.menit : Math.min(d.panen, 1440 / d.menit), perSiklus = terisi * d.hasil * kali;
+const tabBoleh = t => (modeKebun() ? ["properti", "periksa", "kebun", "jalur"] : ["properti", "periksa", "neraca", "rantai", "jalur"]).includes(t);
+// Pindah antara pabrik dan kebun: rancangan masing-masing kembali persis seperti ditinggal
+ED.diMode = {};
+async function pindahMode(keKebun) {
+  if (keKebun === modeKebun()) return;
+  batalKlip();
+  if (simpanTertunda && ED.docId) { clearTimeout(tSimpan); tulisSalinanLokal(); setSimpan("Tersimpan di browser ini"); }
+  const sini = keKebun ? "pabrik" : "kebun", sana = keKebun ? "kebun" : "pabrik";
+  ED.diMode[sini] = { doc: DOC, id: ED.docId, uji: ED.sumberUji, z: ED.z, ox: ED.ox, oy: ED.oy, tab: ED.tab };
+  const t = ED.diMode[sana];
+  if (t) {
+    bukaDoc(t.doc, t.id); ED.sumberUji = t.uji; ED.z = t.z; ED.ox = t.ox; ED.oy = t.oy;
+    pilihTab(tabBoleh(t.tab) ? t.tab : "properti"); tulisStatus(); minta();
+    return;
+  }
+  const r = (await daftarRancangan()).find(q => String(q.isi).includes('"jenis":"kebun"') === keKebun);
+  if (r) { try { const d = JSON.parse(r.isi); if (docSah(d)) { bukaDoc(d, r.id); pilihTab(ED.tab); return; } } catch (err) { /* lanjut ke rancangan awal */ } }
+  if (keKebun) { bukaDoc(AIC.kebunContoh(), null); ED.sumberUji = "kebun:contoh"; pilihTab("kebun"); }
+  else { const u = UJI_LAHAN[0]; bukaDoc(salin(u ? u.doc : CONTOH_AIC), null); if (u) ED.sumberUji = u.doc.nama; pilihTab("properti"); }
+}
+function panelPanen(box) {
+  const o = AIC.kebunDoc(DOC), L = AIC.LAHAN_KEBUN[o.lahan], petak = DOC.m.filter(m => D.mesin[m.f].petak);
+  const auto = DOC.m.some(m => D.mesin[m.f].autofarm), basah = ED.siram;
+  const menit = o.menit * o.xWaktu, siklus = auto || o.panen === 0 ? 1440 / menit : Math.min(o.panen, 1440 / menit), perPetak = o.hasil * o.xHasil, perSiklus = petak.length * perPetak;
+  const ubahK = fn => ubah(() => { DOC.kebun = Object.assign({}, DOC.kebun); fn(DOC.kebun); });
 
   const pilih = bikin("div", "deretSaring");
-  for (const [id, l] of Object.entries(LAHAN_KEBUN)) { const b = bikin("button", "", l.n); b.setAttribute("aria-pressed", String(id === d.lahan)); b.onclick = () => ubahKebun(a => { a.lahan = id; }); pilih.append(b); }
+  for (const [id, l] of Object.entries(AIC.LAHAN_KEBUN)) {
+    const b = bikin("button", "", l.n); b.setAttribute("aria-pressed", String(id === o.lahan));
+    b.onclick = () => { ubahK(a => { a.lahan = id; }); tulisPustaka(); };
+    pilih.append(b);
+  }
   box.append(pilih);
   const sp = bikin("div", "spanduk oke");
-  sp.append(bikin("b", "", L.n), bikin("span", "", `${L.tempat}. ${L.ket}`));
+  sp.append(bikin("b", "", L.n), bikin("span", "", `${L.tempat}. ${CATATAN_LAHAN[o.lahan]}`));
   box.append(sp);
 
   const g = bikin("div", "statGrid");
   const kartu = (label, nilai, kelas, ket) => { const k = bikin("div", "stat " + (kelas || "")); k.append(bikin("span", "statLabel", label), bikin("b", "", nilai)); if (ket) k.append(bikin("span", "statKet", ket)); g.append(k); };
-  kartu("Petak terisi", `${terisi} / ${d.maks}`, "utama", "tanpa mesin AIC");
-  kartu("Panen per siklus", bulat(perSiklus), "cHijau", d.pupuk ? "dengan Bumper-Rich" : "tanpa pupuk");
-  kartu("Siklus per hari", bulat(siklusHari), "cBiru", d.panen === 0 ? "Auto-Farmer" : `${bulat(d.panen)} kali kamu panen`);
-  kartu("Panen per hari", bulat(perSiklus * siklusHari), "cHijau", "sesuai isian di bawah");
+  kartu("Petak", L.maks ? `${petak.length} / ${L.maks}` : String(petak.length), "utama", L.sprinkler ? `${petak.filter(m => basah.has(m.id)).length} tersiram otomatis` : "disiram manual");
+  kartu("Panen per siklus", bulat(perSiklus), "cHijau", o.pupuk ? "dengan pupuk" : "tanpa pupuk");
+  kartu("Siklus per hari", bulat(siklus), "cBiru", auto ? "Auto-Farmer" : o.panen === 0 ? "tanpa henti" : `${bulat(o.panen)} kali kamu panen`);
+  kartu("Panen per hari", bulat(perSiklus * siklus), "cHijau", "sesuai isian di bawah");
   box.append(g);
+  if (!petak.length) box.append(bikin("div", "sub", "Taruh petak dari daftar kiri ke kanvas. Hasil panennya muncul di sini."));
 
-  const bp = bagian(box, "Atur petak", "aHijau", "Pilih tanaman, lalu klik petak. Panduan komunitas memberi jarak 3 kotak antarpetak di game.");
-  const palet = bikin("div", "pilihProduk");
-  for (const t of L.tanaman) {
-    const b = bikin("button"); b.append(gambarTanaman(t), bikin("span", "", t.n)); b.setAttribute("aria-pressed", String(ED.kebunKuas === t.n));
-    b.onclick = () => { ED.kebunKuas = t.n; tulisPanel(); };
-    palet.append(b);
-  }
-  const hapus = bikin("button"); hapus.append(bikin("span", "", "Kosongkan petak")); hapus.setAttribute("aria-pressed", String(ED.kebunKuas === null)); hapus.onclick = () => { ED.kebunKuas = null; tulisPanel(); };
-  palet.append(hapus);
-  bp.append(palet);
-  const grid = bikin("div", "gridKebun"); grid.style.gridTemplateColumns = `repeat(${L.kolom}, minmax(0, 1fr))`;
-  d.petak.forEach((n, i) => {
-    const b = bikin("button", "petak" + (n ? " isi" : "")), t = n && cari(n);
-    b.setAttribute("aria-label", `Petak ${i + 1}: ${n || "kosong"}`);
-    if (t) b.append(gambarTanaman(t), bikin("span", "", n)); else b.append(bikin("span", "redup", String(i + 1)));
-    b.onclick = () => ubahKebun((a, q) => { a.petak[q.lahan][i] = ED.kebunKuas; });
-    grid.append(b);
-  });
-  bp.append(grid);
-  const dr = bikin("div", "deret");
-  const isiSemua = bikin("button", "tombol", ED.kebunKuas ? `Isi semua dengan ${ED.kebunKuas}` : "Kosongkan semua");
-  isiSemua.onclick = () => ubahKebun((a, q) => { a.petak[q.lahan] = q.petak.map(() => ED.kebunKuas); });
-  dr.append(isiSemua); bp.append(dr);
-
-  // Hasil per tanaman
-  const hit = {}; for (const n of d.petak) if (n) hit[n] = (hit[n] || 0) + 1;
-  if (terisi) {
+  const hit = {}; for (const m of petak) hit[m.f] = (hit[m.f] || 0) + 1;
+  if (petak.length) {
     const b = bagian(box, "Hasil panen", "aHijau");
     const tb = bikin("table", "neraca"), isi = kepala(tb, ["Tanaman", "Petak", "/siklus", "/hari"]);
-    for (const [n, c] of Object.entries(hit).sort((x, y) => y[1] - x[1])) {
-      const t = cari(n), tr = bikin("tr"), cn = bikin("td", "selNama"), nm = bikin("div", "namaBrg");
-      nm.append(bikin("span", "", n)); if (t.varian) nm.append(bikin("div", "ketBrg", "berpeluang memberi " + t.varian));
-      cn.append(gambarTanaman(t), nm); tr.append(cn);
-      sel(tr, String(c), "tebal"); sel(tr, bulat(c * d.hasil * kali), "cHijau tebal"); sel(tr, bulat(c * d.hasil * kali * siklusHari), "cBiru");
+    for (const [id, c] of Object.entries(hit).sort((x, y) => y[1] - x[1])) {
+      const f = D.mesin[id], tr = bikin("tr"), cn = bikin("td", "selNama"), im = bikin("img"), nm = bikin("div", "namaBrg");
+      im.src = thumbMesin(id); im.alt = ""; nm.append(bikin("span", "", f.tanaman)); if (f.varian) nm.append(bikin("div", "ketBrg", "berpeluang memberi " + f.varian));
+      cn.append(im, nm); tr.append(cn);
+      sel(tr, String(c), "tebal"); sel(tr, bulat(c * perPetak), "cHijau tebal"); sel(tr, bulat(c * perPetak * siklus), "cBiru");
       isi.append(tr);
     }
     bungkusTabel(b, tb);
   }
 
-  // Yang perlu disiapkan
-  const bs = bagian(box, "Yang perlu disiapkan", "aKuning");
+  const bs = bagian(box, "Yang perlu disiapkan", "aKuning", "Dihitung dari denah ini.");
   const tp = bikin("table", "neraca tabelCek"), ip = kepala(tp, ["Barang", "Jumlah", "Catatan"]);
   const baris = (a, j, c) => { const tr = bikin("tr"); sel(tr, a); sel(tr, j, "tebal"); sel(tr, c, "ketCek"); ip.append(tr); };
-  baris("Benih", String(terisi), "1 per petak, dibeli dari Wellmorin.");
-  baris("Carbon", String(terisi), "1 per petak, untuk membuat petak di Crafting.");
-  if (L.sprinkler) {
-    const nS = Math.ceil(terisi / 2);
-    baris("Sprinkler", String(nS), `1 Sprinkler untuk 2 petak, daya ${nS * 10}.`);
-    baris("Xiranite Pylon", String(Math.ceil(terisi * 6 / 20)), "Panduan komunitas memakai 6 untuk 20 petak.");
-    baris("Pompa, pipa, Splitter", terisi ? "1 set" : "0", "Mengalirkan air ke Sprinkler. Tangki air disarankan.");
-  }
-  if (d.pupuk) baris("Bumper-Rich", `${terisi} per siklus`, "Dibuat di Forge of the Sky.");
+  baris("Benih", String(petak.length), "1 per petak, dibeli dari Wellmorin.");
+  baris("Carbon", String(petak.length), "1 per petak, resep petak ada di Crafting.");
+  const per = {}; for (const m of DOC.m) if (!D.mesin[m.f].petak) per[m.f] = (per[m.f] || 0) + 1;
+  for (const [id, c] of Object.entries(per)) baris(D.mesin[id].n, String(c), D.mesin[id].p ? `Daya ${c * D.mesin[id].p}.` : "");
+  const nPipa = Object.keys(DOC.p).length; if (nPipa) baris("Pipa", String(nPipa), "Termasuk Splitter.");
+  if (o.pupuk) baris(PUPUK_KEBUN.find(p => p[0] === o.pupuk)?.[1].split(":")[0] || "Pupuk", `${petak.length} per siklus`, "1 per petak.");
   bungkusTabel(bs, tp);
 
-  // Anggapan yang bisa diubah
   const bh = bagian(box, "Angka hitungan", "aBiru", "Wiki tidak mencantumkan waktu dan hasil tiap tanaman. Samakan dengan yang kamu lihat di game.");
   const f = bikin("div", "isian");
-  isian(f, "Jumlah petak di lahan ini", d.maks, "number", v => ubahKebun((a, q) => { a.jumlah[q.lahan] = Math.max(1, Math.min(60, Math.round(+v) || 1)); }));
-  isian(f, "Lama satu siklus (menit)", d.menit, "number", v => ubahKebun(a => { a.menit = Math.max(1, +v || 60); }));
-  isian(f, "Hasil per petak", d.hasil, "number", v => ubahKebun(a => { a.hasil = Math.max(0, +v || 0); }));
-  isian(f, "Panen per hari (0 = Auto-Farmer)", d.panen, "number", v => ubahKebun((a, q) => { a.panen[q.lahan] = Math.max(0, +v || 0); }));
-  isian(f, "Bumper-Rich", d.pupuk ? "1" : "", "", v => ubahKebun(a => { a.pupuk = v === "1"; }), [["", "Tanpa pupuk"], ["1", "Pakai, hasil dua kali"]]);
+  isian(f, "Lama satu siklus (menit)", o.menit, "number", v => ubahK(a => { a.menit = Math.max(1, +v || 60); }));
+  isian(f, "Hasil per petak", o.hasil, "number", v => ubahK(a => { a.hasil = Math.max(0, +v || 0); }));
+  if (!auto) isian(f, "Kamu panen berapa kali sehari", o.panen, "number", v => ubahK(a => { a.panen = Math.max(0, +v || 0); }));
+  isian(f, "Pupuk", o.pupuk, "", v => ubahK(a => { a.pupuk = v; a.xHasil = (PUPUK_KEBUN.find(p => p[0] === v) || [0, 0, 1])[2]; a.xWaktu = 1; }), PUPUK_KEBUN.map(p => [p[0], p[1]]));
+  if (o.pupuk) {
+    isian(f, "Pengali hasil pupuk", o.xHasil, "number", v => ubahK(a => { a.xHasil = Math.max(0, +v || 0); }));
+    isian(f, "Pengali waktu tumbuh (0,5 = dua kali lebih cepat)", o.xWaktu, "number", v => ubahK(a => { a.xWaktu = Math.max(0.01, +v || 1); }));
+  }
+  if (L.sprinkler) {
+    isian(f, "Lebar semprot Sprinkler (petak)", o.semprotL, "number", v => ubahK(a => { a.semprotL = Math.max(1, +v || 8); }));
+    isian(f, "Jauh semprot Sprinkler (petak)", o.semprotJ, "number", v => ubahK(a => { a.semprotJ = Math.max(1, +v || 4); }));
+  }
   bh.append(f);
-  bh.append(bikin("div", "sub", "Sumber berbeda soal waktu: ada yang menulis 1 jam, ada yang 4 jam. Isian awal memakai 60 menit dan 2 hasil per petak, dari panduan komunitas."));
-  bh.append(bikin("div", "sub", "Tanpa Auto-Farmer, tanaman yang matang menunggu dipanen dan lahan tidak menanam lagi, jadi hasil ditinggal lama hanya satu siklus. Tiap petak juga harus dikecambahkan manual, Sprinkler hanya menyiram."));
+  bh.append(bikin("div", "sub", "Sumber berbeda soal waktu: ada yang menulis 1 jam, ada yang 4 jam. Isian awal memakai 60 menit dan 2 hasil per petak, dari panduan komunitas. Pengali pupuk selain Bumper-Rich belum ada angkanya."));
+  bh.append(bikin("div", "sub", auto ? "Auto-Farmer mengecambahkan dan memanen sendiri setelah ditingkatkan. Panen tertahan bila penyimpanannya penuh." : "Tanpa Auto-Farmer, tanaman matang menunggu dipanen, jadi hasil ditinggal lama tetap satu siklus. Mengecambahkan dan memupuk juga manual."));
 }
-
+function panelMesinKebun(box, m, f) {
+  const o = AIC.kebunDoc(DOC);
+  if (f.petak) {
+    const b = bagian(box, "Tanaman", "aHijau");
+    const fi = bikin("div", "isian"), pilihan = Object.keys(D.mesin).filter(q => D.mesin[q].petak && D.mesin[q].lahan === o.lahan);
+    isian(fi, "Ganti tanaman", m.f, "", v => ubah(() => { if (D.mesin[v]) m.f = v; }), (pilihan.includes(m.f) ? [] : [[m.f, f.tanaman]]).concat(pilihan.map(q => [q, D.mesin[q].tanaman])));
+    b.append(fi);
+    if (f.varian) b.append(bikin("div", "sub", `Berpeluang memberi ${f.varian} saat dipanen.`));
+    b.append(bikin("div", "sub", ED.siram.get(m.id) ? `Disiram otomatis oleh ${ED.siram.get(m.id)}.` : "Belum tersiram otomatis, harus disiram manual."));
+    if (f.ukuranTebak) b.append(bikin("div", "sub", "Ukuran 4×4 disamakan dengan petak lain, belum dicek untuk tanaman ini."));
+  } else if (f.semprot) {
+    box.append(bikin("div", "sub", "Menyemprot air ke dua petak di depannya, otomatis saat petak perlu disiram. Tidak bisa mengecambahkan. Putar dengan R untuk mengubah arahnya."));
+    box.append(bikin("div", "sub", "Kotak biru di kanvas adalah anggapan jangkauannya. Cocokkan dengan sorotan di game, lalu ubah di tab Panen. Arah semprot terhadap port pipa juga belum dicek."));
+  } else if (f.kabut) {
+    box.append(bikin("div", "sub", "Mengisi area 13×13 di sekitarnya dengan lingkungan gas, minimal 6 gas/mnt. Lingkungan Humid menyirami petak. Petak harus berada penuh di dalam area, dan area dua unit tidak boleh bertumpuk."));
+    box.append(bikin("div", "sub", "Wiki tidak menyebut gas untuk Humid. Aquagen di sini adalah dugaanku, cek di game."));
+  } else if (f.autofarm) {
+    box.append(bikin("div", "sub", "Setelah ditingkatkan, mengecambahkan dan memanen petak di lahan ini. Panen disimpan sampai penuh dan bisa dikirim ke Depot Wuling. Di Si's Painting ditingkatkan memakai Spirit Money, Lv.3 menambah Refine Crop dan Green Touch, Lv.4 memperbesar penyimpanan."));
+    box.append(bikin("div", "sub", "Letak dan ukurannya di sini hanya penanda: tidak ada sumber ukuran, dan misinya menunjukkan bangunan ini sudah ada di lahan."));
+  } else if (m.f === "liquid_storager_1") {
+    box.append(bikin("div", "sub", "Menyimpan sampai 500 unit satu jenis cairan, tanpa daya. Menahan air supaya penyiraman tidak langsung berhenti."));
+  } else return false;
+  return true;
+}
 function tulisPanel() {
   const box = $("isiInfo");
   const aktif = document.activeElement && box.contains(document.activeElement) ? document.activeElement.id : null;
   const atas = box.scrollTop;
   box.textContent = "";
   for (const [id, n] of TAB) $(id).setAttribute("aria-selected", String(n === ED.tab));
-  $("app").classList.toggle("lebar", ["neraca", "rantai", "jalur", "kebun"].includes(ED.tab));
+  $("app").classList.toggle("lebar", ["neraca", "rantai", "jalur"].includes(ED.tab));
   if (ED.tab === "periksa") panelPeriksa(box);
   else if (ED.tab === "neraca") panelNeraca(box);
   else if (ED.tab === "rantai") panelRantai(box);
   else if (ED.tab === "jalur") panelJalur(box);
-  else if (ED.tab === "kebun") panelKebun(box);
+  else if (ED.tab === "kebun") panelPanen(box);
   else {
     const sel = [...ED.sel];
     if (!sel.length) panelProyek(box);
@@ -3258,7 +3458,8 @@ function tulisStatus() {
   const s = ED.sim, err = ED.temuan.filter(x => x.lvl === "err").length;
   const r = $("sRingkas"); r.textContent = "";
   const mesin = DOC.m.filter(m => !D.mesin[m.f].listrik).length;
-  r.append(`${mesin} mesin · ${Object.keys(DOC.b).length} sabuk · ${Object.keys(DOC.p).length} pipa`);
+  if (modeKebun()) { const n = DOC.m.filter(m => D.mesin[m.f].petak).length; r.append(`${n} petak · ${mesin - n} mesin · ${Object.keys(DOC.p).length} pipa`); }
+  else r.append(`${mesin} mesin · ${Object.keys(DOC.b).length} sabuk · ${Object.keys(DOC.p).length} pipa`);
   if (s) { const pasok = (DOC.dayaDasar || 0) + s.daya.bangkit; r.append(` · daya ${Math.round(s.daya.beban)}/${Math.round(pasok)} · `); const e = bikin("b", err ? "bad" : "", DOC.sketsa ? "sketsa, belum bisa disimulasikan" : err ? `${err} galat` : "tanpa galat"); r.append(e); const ek = AIC.ekonomi(DOC, s); if (ek.pendapatan > 0) r.append(" · ", bikin("b", "", `${uang(ek.pendapatan)} Stock Bill/mnt`)); }
 }
 
@@ -3315,6 +3516,7 @@ function bukaDoc(o, id) {
   DOC = o; ED.foto = !!o.foto; setFoto(); ED.docId = id; ED.sumberUji = null; ED.undo = []; ED.redo = []; ED.sel.clear(); ED.klip = null; ED.rute = null;
   if (!DOC.seq) DOC.seq = 1 + DOC.m.reduce((a, m) => Math.max(a, parseInt(String(m.id).slice(1)) || 0), 0);
   $("namaDoc").value = DOC.nama || "";
+  terapkanMode();
   pilihAlat("pilih");
   segarkanTurunan(); jalankanSim(); pasLayar(); setSimpan(id ? "Tersimpan" : "Contoh, belum disimpan");
 }
@@ -3322,6 +3524,21 @@ function setFoto() { const b = $("vFoto"); if (b) b.setAttribute("aria-pressed",
 function jendela(isi) { const k = $("kartu"); k.textContent = ""; isi(k); $("jendela").hidden = false; }
 $("jendela").addEventListener("pointerdown", e => { if (e.target === $("jendela")) $("jendela").hidden = true; });
 $("bBaru").onclick = () => jendela(k => {
+  if (modeKebun()) {
+    k.append(bikin("h2", "", "Kebun baru"));
+    k.append(bikin("div", "sub", "Rancangan yang sekarang tetap tersimpan di daftar Buka."));
+    const c = bikin("button", "tombol utama", "Contoh Wuling: 20 petak, 10 Sprinkler");
+    c.onclick = () => { $("jendela").hidden = true; bukaDoc(AIC.kebunContoh(), null); ED.sumberUji = "kebun:contoh"; };
+    const d = bikin("div", "deret"); d.append(c); k.append(d);
+    k.append(bikin("h3", "", "Lahan kosong"));
+    for (const [id, l] of Object.entries(AIC.LAHAN_KEBUN)) {
+      const t = bikin("button", "baris", `${l.n}, ${l.tempat}`);
+      t.onclick = () => { $("jendela").hidden = true; bukaDoc(AIC.kebunBaru(id), null); setSimpan(""); };
+      k.append(t);
+    }
+    const b = bikin("button", "tombol", "Batal"); b.onclick = () => { $("jendela").hidden = true; }; b.style.alignSelf = "flex-start"; k.append(b);
+    return;
+  }
   k.append(bikin("h2", "", "Rancangan baru"));
   k.append(bikin("div", "sub", "Rancangan yang sekarang tetap tersimpan di daftar Buka."));
   const d = bikin("div", "deret");
@@ -3346,7 +3563,7 @@ $("bBuka").onclick = async () => {
     if (!daftar.length) k.append(bikin("div", "sub", "Belum ada yang tersimpan. Rancangan tersimpan otomatis setelah diubah."));
     for (const r of daftar) {
       const b = bikin("div", "proyek"), n = bikin("div", "n", r.nama || "Tanpa nama");
-      n.append(bikin("small", "", (r.waktu || "").slice(0, 16).replace("T", " ")));
+      n.append(bikin("small", "", (String(r.isi).includes('"jenis":"kebun"') ? "Kebun · " : "") + (r.waktu || "").slice(0, 16).replace("T", " ")));
       const o = bikin("button", "tombol", "Buka");
       o.onclick = () => { try { const d = JSON.parse(r.isi); if (!docSah(d)) throw 0; $("jendela").hidden = true; bukaDoc(d, r.id); } catch (err) { kabar("Berkas rancangan rusak"); } };
       const h = bikin("button", "tombol", "Hapus");
@@ -3553,6 +3770,8 @@ for (const [id, kunci] of [["vSabuk", "b"], ["vPipa", "p"], ["vListrik", "listri
   b.onclick = () => { ED.vis[kunci] = !ED.vis[kunci]; b.setAttribute("aria-pressed", String(ED.vis[kunci])); minta(); };
 }
 for (const [id, n] of TAB) $(id).onclick = () => pilihTab(n);
+$("mPabrik").onclick = () => pindahMode(false);
+$("mKebun").onclick = () => pindahMode(true);
 $("bPustaka").onclick = () => { $("pustaka").classList.toggle("buka"); $("info").classList.remove("buka"); };
 $("bInfo").onclick = () => { $("info").classList.toggle("buka"); $("pustaka").classList.remove("buka"); };
 $("namaDoc").addEventListener("change", e => ubah(() => { DOC.nama = e.target.value.trim() || "Rancangan"; }));
@@ -3620,6 +3839,7 @@ function pulihkan(g, daftar) {
   const buka = r => { try { const d = JSON.parse(r.isi); if (!docSah(d)) return false; bukaDoc(d, r.id); return true; } catch (err) { return false; } };
   let ok = false;
   if (g && g.id) { const r = daftar.find(x => x.id === g.id); ok = !!r && buka(r); }
+  else if (g && g.uji === "kebun:contoh") { bukaDoc(AIC.kebunContoh(), null); ED.sumberUji = g.uji; ok = true; }
   else if (g && g.uji) { const u = UJI_LAHAN.find(x => x.doc.nama === g.uji); if (u) { bukaDoc(salin(u.doc), null); ED.sumberUji = g.uji; ok = true; } }
   if (!ok && daftar.length) ok = buka(daftar[0]);
   if (g) terapkanIngatan(g);
