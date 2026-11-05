@@ -3323,6 +3323,8 @@ async function pindahMode(keKebun) {
     pilihTab(tabBoleh(t.tab) ? t.tab : "properti"); tulisStatus(); minta();
     return;
   }
+  const ujiLama = !keKebun && UJI_LAHAN.find(u => u.doc.nama === ED.ujiPabrik);
+  if (ujiLama) { bukaDoc(salin(ujiLama.doc), null); ED.sumberUji = ujiLama.doc.nama; pilihTab("properti"); return; }
   const r = (await daftarRancangan()).find(q => String(q.isi).includes('"jenis":"kebun"') === keKebun);
   if (r) { try { const d = JSON.parse(r.isi); if (docSah(d)) { bukaDoc(d, r.id); pilihTab(ED.tab); return; } } catch (err) { /* lanjut ke rancangan awal */ } }
   if (keKebun) { bukaDoc(AIC.kebunContoh(), null); ED.sumberUji = "kebun:contoh"; pilihTab("kebun"); }
@@ -3796,7 +3798,8 @@ function bacaIngatan() {
   return a || b;
 }
 function ambilIngatan() {
-  return { id: ED.docId, uji: ED.docId ? null : ED.sumberUji || null, nama: DOC.nama || "", tab: ED.tab, z: +ED.z.toFixed(2), cx: ED.w ? +((ED.w / 2 - ED.ox) / ED.z).toFixed(2) : null, cy: ED.h ? +((ED.h / 2 - ED.oy) / ED.z).toFixed(2) : null, vis: ED.vis, foto: !!ED.foto, opsi: ED.opsi, depot: ED.depot, hanyaDenah: !!ED.hanyaDenah, grupTutup: [...(ED.grupTutup || [])], rantaiItem: ED.rantaiItem || null, rantaiLaju: ED.rantaiLaju ?? null, jalurSaring: ED.jalurSaring || null };
+  if (!modeKebun()) ED.ujiPabrik = ED.docId ? null : ED.sumberUji || null;
+  return { ujiPabrik: ED.ujiPabrik || null, id: ED.docId, uji: ED.docId ? null : ED.sumberUji || null, nama: DOC.nama || "", tab: ED.tab, z: +ED.z.toFixed(2), cx: ED.w ? +((ED.w / 2 - ED.ox) / ED.z).toFixed(2) : null, cy: ED.h ? +((ED.h / 2 - ED.oy) / ED.z).toFixed(2) : null, vis: ED.vis, foto: !!ED.foto, opsi: ED.opsi, depot: ED.depot, hanyaDenah: !!ED.hanyaDenah, grupTutup: [...(ED.grupTutup || [])], rantaiItem: ED.rantaiItem || null, rantaiLaju: ED.rantaiLaju ?? null, jalurSaring: ED.jalurSaring || null };
 }
 let tandaIngat = "", tDbIngat = 0, ingatanAktif = false;
 function tulisIngatan(paksaDb) {
@@ -3823,6 +3826,7 @@ function lupakanIngatan() {
 function terapkanIngatan(g) {
   if (g.vis) for (const [id, kunci] of [["vSabuk", "b"], ["vPipa", "p"], ["vListrik", "listrik"], ["vAlir", "alir"]]) if (kunci in g.vis) { ED.vis[kunci] = !!g.vis[kunci]; $(id).setAttribute("aria-pressed", String(ED.vis[kunci])); }
   ED.foto = !!g.foto; setFoto();
+  ED.ujiPabrik = g.ujiPabrik || ED.ujiPabrik || null;
   if (g.opsi) Object.assign(ED.opsi, g.opsi);
   if (g.depot) ED.depot = g.depot;
   ED.hanyaDenah = !!g.hanyaDenah; ED.grupTutup = new Set(g.grupTutup || []);
