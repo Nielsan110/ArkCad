@@ -1272,18 +1272,19 @@ const CINCIN = { 1: "#c6d23e", 2: "#35a4e6", 3: "#9a6be0", 4: "#e9a23b", 5: "#e8
 
 let DOC = salin(CONTOH_AIC);
 const ED = {
-  docId: null, alat: "pilih", lapis: "b", z: 26, ox: 0, oy: 0, dpr: 1, w: 0, h: 0,
+  verAdegan: 0, docId: null, alat: "pilih", lapis: "b", z: 26, ox: 0, oy: 0, dpr: 1, w: 0, h: 0,
   sel: new Set(), klip: null, rute: null, simpul: null, hover: { x: 0, y: 0, px: 0, py: 0, ada: false }, seret: null,
   undo: [], redo: [], sim: null, temuan: [], tab: "properti", vis: { b: true, p: true, listrik: false, alir: true },
   opsi: { radiusTiang: 6, radiusRelay: 4 }, depot: 72000, peta: new Map(), portOut: new Map(), portIn: new Map(), bentuk: { b: {}, p: {} },
   titik: [], db: null, dl: null, cariTeks: "", resepTeks: "", spasi: false,
 };
-const kanvas = $("kanvas"), g0 = kanvas.getContext("2d");
+const kanvas = $("kanvas"), g0 = kanvas.getContext("2d", { alpha: false });
 const hematGerak = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
 if (hematGerak) ED.vis.alir = false;
 
 // ---- turunan dokumen ----
 function segarkanTurunan() {
+  ED.verAdegan = (ED.verAdegan || 0) + 1;
   ED.peta = AIC.petaMesin(DOC);
   ED.portOut = new Map(); ED.portIn = new Map();
   for (const m of DOC.m) for (const p of AIC.porta(m)) (p.io === "out" ? ED.portOut : ED.portIn).set(p.jenis + ":" + key(p.lx, p.ly) + ":" + p.d, p);
@@ -1305,14 +1306,14 @@ function gambarAsli(id) {
     const im = new Image(), jauh = /^https?:/.test(IKON_ASLI[id]);
     // Dari CDN: harus izin CORS supaya gambar denah tetap bisa diekspor. Panel digambar ulang setelah ikon tiba.
     if (jauh) im.crossOrigin = "anonymous";
-    im.onload = () => { minta(); if (jauh) segarIkon(); };
+    im.onload = () => { ED.verAdegan++; minta(); if (jauh) segarIkon(); };
     im.onerror = () => { delete IKON_ASLI[id]; delete cacheGambar[id]; if (jauh) segarIkon(); }; // gagal: pakai ikon buatan
     im.src = IKON_ASLI[id]; cacheGambar[id] = im;
   }
   return cacheGambar[id].complete && cacheGambar[id].naturalWidth ? cacheGambar[id] : null;
 }
 let tSegarIkon = 0;
-function segarIkon() { clearTimeout(tSegarIkon); tSegarIkon = setTimeout(() => { tulisPustaka(); tulisPanel(); minta(); }, 250); }
+function segarIkon() { clearTimeout(tSegarIkon); tSegarIkon = setTimeout(() => { ED.verAdegan++; tulisPustaka(); tulisPanel(); minta(); }, 250); }
 // Sebelum ekspor: tunggu ikon yang dipakai denah, paling lama beberapa detik
 function siapkanIkon() {
   if (!IKON_ASLI) return Promise.resolve();
@@ -1638,13 +1639,18 @@ function arsir(g) {
   polaArsir = g.createPattern(c, "repeat");
   return polaArsir;
 }
-function gambarLapis(g, z, ox, oy, l, tiles, bentuk, alpha) {
-  const ks = Object.keys(tiles);
-  if (!ks.length) return;
+function gambarLapis(g, z, ox, oy, l, tiles, bentuk, alpha, layar) {
+  const isi = [];
+  for (const k in tiles) {
+    const [x, y] = k.split(",").map(Number), px = ox + x * z, py = oy + y * z;
+    if (layar && (px + z < 0 || py + z < 0 || px > layar.w || py > layar.h)) continue;
+    isi.push({ k, x, y, t: tiles[k] });
+  }
+  if (!isi.length) return;
   g.save(); if (alpha) g.globalAlpha = alpha; g.lineCap = "butt"; g.lineJoin = "round";
   const garis = () => {
     g.beginPath();
-    for (const k of ks) { const t = tiles[k]; if (t.t && t.t !== "gate") continue; const [x, y] = k.split(",").map(Number); jalurTile(g, z, ox, oy, x, y, t.d, bentuk[k] ?? lawan(t.d)); }
+    for (const { k, x, y, t } of isi) { if (t.t && t.t !== "gate") continue; jalurTile(g, z, ox, oy, x, y, t.d, bentuk[k] ?? lawan(t.d)); }
   };
   if (l === "b") {
     garis(); g.strokeStyle = "rgba(255,255,255,.55)"; g.lineWidth = z * 0.78; g.stroke();
@@ -1654,14 +1660,14 @@ function gambarLapis(g, z, ox, oy, l, tiles, bentuk, alpha) {
     garis(); g.strokeStyle = "rgba(244,244,242,.85)"; g.lineWidth = z * 0.28; g.stroke();
     garis(); g.strokeStyle = WARNA.pipa; g.lineWidth = z * 0.16; g.stroke();
   }
-  if (z >= 12) for (const k of ks) {
-    const t = tiles[k]; if (t.t || t.tebak) continue;
-    const [x, y] = k.split(",").map(Number), s = bentuk[k] ?? lawan(t.d);
+  if (z >= 12) for (const { k, x, y, t } of isi) {
+    if (t.t || t.tebak) continue;
+    const s = bentuk[k] ?? lawan(t.d);
     if (s !== lawan(t.d)) continue;
     if (l === "b") segitiga(g, ox + (x + 0.5) * z, oy + (y + 0.5) * z, t.d, z * 0.09, "rgba(92,88,30,.62)");
     else segitiga(g, ox + (x + 0.5) * z, oy + (y + 0.5) * z, t.d, z * 0.055, "#f4f4f2");
   }
-  for (const k of ks) { const t = tiles[k]; if (t.t) { const [x, y] = k.split(",").map(Number); gambarSimpul(g, z, ox, oy, x, y, t, l); } }
+  for (const { x, y, t } of isi) if (t.t) gambarSimpul(g, z, ox, oy, x, y, t, l);
   g.restore();
 }
 function gambarSimpul(g, z, ox, oy, x, y, t, l) {
@@ -1743,10 +1749,48 @@ function gambarAdegan(g, z, ox, oy, w, h, ekspor) {
       g.fillRect(ox + k.x0 * z, oy + k.y0 * z, (k.x1 - k.x0) * z, (k.y1 - k.y0) * z); g.strokeRect(ox + k.x0 * z, oy + k.y0 * z, (k.x1 - k.x0) * z, (k.y1 - k.y0) * z); g.setLineDash([]);
     }
   }
-  if (ED.vis.b) gambarLapis(g, z, ox, oy, "b", DOC.b, ED.bentuk.b);
+  if (ED.vis.b) gambarLapis(g, z, ox, oy, "b", DOC.b, ED.bentuk.b, undefined, { w, h });
   const seenMesin = m => ox + (m.x + 16) * z > 0 && oy + (m.y + 16) * z > 0 && ox + (m.x - 2) * z < w && oy + (m.y - 2) * z < h;
   for (const m of DOC.m) if (seenMesin(m)) gambarMesin(g, z, ox, oy, m, { tanpaStatus: ekspor });
-  if (ED.vis.p) gambarLapis(g, z, ox, oy, "p", DOC.p, ED.bentuk.p);
+  if (ED.vis.p) gambarLapis(g, z, ox, oy, "p", DOC.p, ED.bentuk.p, undefined, { w, h });
+}
+// Denah digambar sekali ke kanvas cadangan yang lebih luas dari layar. Saat digeser, gambar jadi itu tinggal
+// ditempel, jadi beratnya tidak bergantung pada jumlah mesin. Digambar lagi bila isi atau zoom berubah,
+// atau bila geserannya sudah melewati tepi cadangan.
+const TEPI_ADEGAN = 320;
+let cadangan = null;
+function gambarLatar(g, z, ox, oy) {
+  const w = ED.w, h = ED.h, M = TEPI_ADEGAN, dpr = ED.dpr;
+  if (!w || !h) return;
+  const tanda = [ED.verAdegan, ED.foto ? 1 : 0, ED.vis.b, ED.vis.p, ED.vis.listrik, ED.rute && ED.rute.lapis === "p" ? 1 : 0, dpr, w, h].join();
+  const c = cadangan;
+  if (c && c.tanda === tanda) {
+    if (c.z === z) {
+      const dx = ox - c.ox, dy = oy - c.oy;
+      if (Math.abs(dx) <= M && Math.abs(dy) <= M) {
+        g.setTransform(1, 0, 0, 1, 0, 0);
+        g.drawImage(c.kanvas, Math.round((dx - M) * dpr), Math.round((dy - M) * dpr));
+        g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        return;
+      }
+    } else if (performance.now() - (ED.tZoom || 0) < 140) {
+      // Sedang diputar roda: besar-kecilkan gambar jadi, yang tajam menyusul begitu berhenti
+      const skala = z / c.z;
+      g.fillStyle = "#c9cacc"; g.fillRect(0, 0, w, h);
+      g.drawImage(c.kanvas, ox - (c.ox + M) * skala, oy - (c.oy + M) * skala, (w + 2 * M) * skala, (h + 2 * M) * skala);
+      return;
+    }
+  }
+  const lebar = Math.ceil((w + 2 * M) * dpr), tinggi = Math.ceil((h + 2 * M) * dpr);
+  const baru = c && c.kanvas.width === lebar && c.kanvas.height === tinggi ? c : { kanvas: document.createElement("canvas") };
+  if (baru !== c) { baru.kanvas.width = lebar; baru.kanvas.height = tinggi; baru.g = baru.kanvas.getContext("2d", { alpha: false }); }
+  baru.g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  gambarAdegan(baru.g, z, ox + M, oy + M, w + 2 * M, h + 2 * M);
+  Object.assign(baru, { tanda, z, ox, oy });
+  cadangan = baru;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.drawImage(baru.kanvas, Math.round(-M * dpr), Math.round(-M * dpr));
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 let waktuAlir = 0;
 function gambarTitik(g, z, ox, oy, t) {
@@ -1771,8 +1815,9 @@ function selKe(k) { return k.split(":"); }
 function gambar() {
   ED.jadwal = false;
   const g = g0, z = ED.z, ox = ED.ox, oy = ED.oy;
+  ED.tGambar = performance.now();
   g.setTransform(ED.dpr, 0, 0, ED.dpr, 0, 0);
-  gambarAdegan(g, z, ox, oy, ED.w, ED.h);
+  gambarLatar(g, z, ox, oy);
   if (ED.vis.alir) gambarTitik(g, z, ox, oy, waktuAlir);
   // sorotan pilihan
   g.strokeStyle = WARNA.pilih; g.lineWidth = 2;
@@ -1838,12 +1883,12 @@ function gambar() {
     g.strokeStyle = "rgba(23,24,26,.55)"; g.lineWidth = 1; g.strokeRect(ox + ED.hover.x * z + 0.5, oy + ED.hover.y * z + 0.5, z - 1, z - 1);
   }
 }
-function minta() { if (!ED.jadwal) { ED.jadwal = true; requestAnimationFrame(gambar); } }
+function minta() { if (!ED.jadwal) { ED.jadwal = true; requestAnimationFrame(() => { if (ED.jadwal) gambar(); }); } }
 
 // animasi aliran hemat: 30 fps dan hanya saat ada aliran
 let tAkhir = 0;
 function putarAlir(t) {
-  if (ED.vis.alir && ED.titik.length && t - tAkhir > 33) { waktuAlir = t / 1000; tAkhir = t; gambar(); }
+  if (ED.vis.alir && ED.titik.length && ED.z >= 10 && t - tAkhir > 33) { waktuAlir = t / 1000; tAkhir = t; if (performance.now() - (ED.tGambar || 0) > 8) gambar(); }
   requestAnimationFrame(putarAlir);
 }
 requestAnimationFrame(putarAlir);
@@ -1871,10 +1916,13 @@ function pasLayar() {
   ED.ox = (ED.w - (x1 - x0) * ED.z) / 2 - x0 * ED.z; ED.oy = (ED.h - (y1 - y0) * ED.z) / 2 - y0 * ED.z;
   tulisStatus(); minta();
 }
+let tZoomSelesai = 0;
 function zoomDi(px, py, f) {
   const z2 = Math.max(6, Math.min(90, ED.z * f));
   ED.ox = px - (px - ED.ox) * (z2 / ED.z); ED.oy = py - (py - ED.oy) * (z2 / ED.z); ED.z = z2;
-  tulisStatus(); minta();
+  $("sZoom").textContent = Math.round(ED.z / 26 * 100) + "%";
+  ED.tZoom = performance.now(); clearTimeout(tZoomSelesai); tZoomSelesai = setTimeout(minta, 160);
+  minta();
 }
 
 // ---- perubahan & riwayat ----
@@ -1898,6 +1946,7 @@ function jalankanSim() {
   // tiruan dari gambar belum punya resep, galatnya hanya menutupi denah
   ED.temuan = DOC.sketsa ? [] : AIC.periksa(DOC, ED.sim, ED.opsi);
   ED.siram = modeKebun() ? AIC.siramKebun(DOC, ED.sim).petak : new Map();
+  ED.verAdegan++;
   segarPustaka();
   // titik animasi: jarak sepanjang aliran supaya barang tampak bersambung
   const net = ED.sim.net, jarak = new Map(), antre = [];
@@ -2128,7 +2177,12 @@ function hapusDi(x, y) {
 }
 function tulisTip(px, py) {
   const tip = $("tip"), s = ED.hover.ada && !ED.seret && !ED.klip && !(ED.rute && ED.rute.a) ? diAtas(ED.hover.x, ED.hover.y) : null;
-  if (!s) { tip.hidden = true; return; }
+  if (!s) { tip.hidden = true; ED.tipS = null; return; }
+  if (s === ED.tipS && ED.sim === ED.tipSim && !tip.hidden) {
+    tip.style.left = Math.min(px + 14, ED.w - ED.tipLebar - 8) + "px"; tip.style.top = Math.min(py + 14, ED.h - 50) + "px";
+    return;
+  }
+  ED.tipS = s; ED.tipSim = ED.sim;
   const [j, a] = selKe(s);
   tip.textContent = "";
   if (j === "m") {
@@ -2152,6 +2206,7 @@ function tulisTip(px, py) {
     }
   }
   const lebar = tip.offsetWidth || 160;
+  ED.tipLebar = lebar;
   tip.hidden = false;
   tip.style.left = Math.min(px + 14, ED.w - lebar - 8) + "px"; tip.style.top = Math.min(py + 14, ED.h - 50) + "px";
 }
@@ -3869,7 +3924,7 @@ window.addEventListener("hashchange", bukaDariAlamat);
 setInterval(tulisIngatan, 1500);
 window.addEventListener("pagehide", () => { if (simpanTertunda && ED.docId) { clearTimeout(tSimpan); tulisSalinanLokal(); } tulisIngatan(true); });
 document.addEventListener("visibilitychange", () => { if (document.hidden) tulisIngatan(true); });
-if (document.fonts && document.fonts.ready) document.fonts.ready.then(minta);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { ED.verAdegan++; minta(); });
 if (window.claude && window.claude.use) {
   window.claude.use("downloads").then(d => { ED.dl = d; }, () => {});
   window.claude.use("db").then(async db => {
