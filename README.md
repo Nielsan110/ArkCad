@@ -12,6 +12,7 @@ Tidak perlu akun dan tidak perlu dipasang.
 - Mensimulasikan pabrik: laju tiap barang, persen kerja tiap mesin, dan pemakaian daya.
 - Memeriksa jalur putus, bangunan bertumpuk, dan mesin yang belum tersambung.
 - Menghitung Stock Bill per menit, kapan depot penuh, dan apakah bahan cukup.
+- Merencanakan kebun di lahan tanam, tanpa Unit Penanam dan Unit Petik Benih.
 - Mengunduh hasil sebagai gambar, laporan, tabel, atau berkas rancangan.
 
 ## Cara pakai
@@ -32,6 +33,7 @@ Tidak perlu akun dan tidak perlu dipasang.
 | **Neraca** | Produk, pendapatan, pos depan, bahan, pompa, dan kerja mesin |
 | **Rantai** | Mesin dan bahan yang dibutuhkan untuk membuat suatu barang |
 | **Jalur** | Semua ruas sabuk dan pipa, termasuk yang terpanjang dan yang putus |
+| **Kebun** | Isi petak di Agricultural Test Site, Eco-Farm, dan Si's Painting, lalu hitung hasil panennya |
 
 Di tab **Neraca**, isi hasil tambangmu per menit dan level pos depan supaya perhitungannya sesuai akunmu.
 
